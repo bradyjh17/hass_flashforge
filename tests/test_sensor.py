@@ -181,6 +181,15 @@ async def test_sensor_update_hanging_printer(
         state = hass.states.get(expected["entity_id"])
         assert state.state == STATE_UNAVAILABLE
 
+    # The printer answers again, the next update recovers.
+    mock_printer_network.sendStatusRequest.side_effect = None
+    mock_printer_network.sendStatusRequest.return_value = STATUS_PRINTING
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert coordinator.last_update_success
+    assert hass.states.get("sensor.adventurer4_status").state == "BUILDING_FROM_SD"
+
 
 @pytest.mark.asyncio
 async def test_remaining_time_estimate(

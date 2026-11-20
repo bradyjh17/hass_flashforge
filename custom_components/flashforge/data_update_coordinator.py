@@ -24,6 +24,14 @@ from .estimator import PrintTimeEstimator
 _LOGGER = logging.getLogger(__name__)
 
 
+def _to_float(value: object) -> float | None:
+    """Convert a printer value, ffpp 0.0.15 returns numbers as strings."""
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
 class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching FlashForgeprinter data."""
 
@@ -58,6 +66,9 @@ class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
                 await self.printer.update()
                 files = await self.printer.network.sendGetFileNames()
         except (TimeoutError, ConnectionError) as err:
+            # ffpp 0.0.15 keeps the socket open when a request is cancelled,
+            # the next request would read the stale reply. Start over.
+            await self.printer.network.disconnect()
             self.failedupdates += 1
             if self.failedupdates >= MAX_FAILED_UPDATES:
                 self.failedupdates = 0
@@ -75,7 +86,7 @@ class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
     def _update_job_estimate(self) -> None:
         self._estimator.update(
             status=self.printer.machine_status,
-            progress=self.printer.print_percent,
+            progress=_to_float(self.printer.print_percent),
             now=time.monotonic(),
         )
         remaining = self._estimator.remaining

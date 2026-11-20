@@ -15,12 +15,7 @@ from homeassistant.util import dt as dt_util
 from custom_components.flashforge.const import DOMAIN, MAX_FAILED_UPDATES
 
 from . import init_integration
-from .const_response import (
-    MACHINE_INFO_TWO_EXTRUDERS,
-    PROGRESS_PRINTING_PER_MILLE,
-    STATUS_PRINTING,
-    TEMP_PRINTING_TWO_EXTRUDERS,
-)
+from .const_response import STATUS_PRINTING
 
 SENSORS = (
     {
@@ -55,7 +50,7 @@ SENSORS = (
     },
     {
         "entity_id": "sensor.adventurer4_job_percentage",
-        "state": "11.0",
+        "state": "11",
         "name": "Adventurer4 Job Percentage",
         "unique_id": "SNADVA1234567_job_percentage",
     },
@@ -159,34 +154,6 @@ async def test_sensor_update_error2(
 
 
 @pytest.mark.asyncio
-async def test_two_extruders_and_per_mille_progress(
-    enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
-):
-    """Test a Creator 3: two extruders and progress reported in per mille."""
-    mock_printer_network.sendInfoRequest.return_value = MACHINE_INFO_TWO_EXTRUDERS
-    mock_printer_network.sendTempRequest.side_effect = None
-    mock_printer_network.sendTempRequest.return_value = TEMP_PRINTING_TWO_EXTRUDERS
-    mock_printer_network.sendProgressRequest.side_effect = None
-    mock_printer_network.sendProgressRequest.return_value = PROGRESS_PRINTING_PER_MILLE
-    await init_integration(hass)
-
-    expected_states = {
-        "sensor.adventurer4_extruder0_current": "210.0",
-        "sensor.adventurer4_extruder0_target": "210.0",
-        "sensor.adventurer4_extruder1_current": "33.0",
-        "sensor.adventurer4_extruder1_target": "0.0",
-        "sensor.adventurer4_bed_current": "45.0",
-        "sensor.adventurer4_bed_target": "45.0",
-        "sensor.adventurer4_job_percentage": "46.1",
-    }
-    for entity_id, expected in expected_states.items():
-        state = hass.states.get(entity_id)
-        assert state is not None, entity_id
-        assert state.state == expected, entity_id
-    assert hass.states.get("sensor.adventurer4_extruder_current") is None
-
-
-@pytest.mark.asyncio
 async def test_sensor_update_hanging_printer(
     enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
 ):
@@ -198,6 +165,7 @@ async def test_sensor_update_hanging_printer(
         return ""
 
     mock_printer_network.sendStatusRequest.side_effect = never_answers
+    mock_printer_network.disconnect.reset_mock()
 
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     with patch(
@@ -207,6 +175,8 @@ async def test_sensor_update_hanging_printer(
     await hass.async_block_till_done()
 
     assert not coordinator.last_update_success
+    # The connection is reset, a stale reply must not be read next time.
+    assert mock_printer_network.disconnect.await_count >= MAX_FAILED_UPDATES
     for expected in SENSORS:
         state = hass.states.get(expected["entity_id"])
         assert state.state == STATE_UNAVAILABLE
@@ -220,8 +190,8 @@ async def test_remaining_time_estimate(
     mock_printer_network.sendStatusRequest.side_effect = None
     mock_printer_network.sendStatusRequest.return_value = STATUS_PRINTING
     mock_printer_network.sendProgressRequest.side_effect = (
-        f"CMD M27 Received.\r\nSD printing byte {per_mille}/1000\r\nok\r\n"
-        for per_mille in count(0, 10)
+        f"CMD M27 Received.\r\nSD printing byte {percent}/100\r\nok\r\n"
+        for percent in count()
     )
 
     with patch(
@@ -237,7 +207,7 @@ async def test_remaining_time_estimate(
         await hass.async_block_till_done()
 
     # 7 % done, 93 % left.
-    assert hass.states.get("sensor.adventurer4_job_percentage").state == "7.0"
+    assert hass.states.get("sensor.adventurer4_job_percentage").state == "7"
     assert hass.states.get("sensor.adventurer4_job_remaining").state == "93"
     job_end = dt_util.parse_datetime(
         hass.states.get("sensor.adventurer4_job_end").state

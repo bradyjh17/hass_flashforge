@@ -83,8 +83,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
         _LOGGER.debug("print_file")
         filename = call.data.get("file_name")
         await printer.connect()
+        if printer.machine_status == "BUILDING_COMPLETED":
+            # READY is the printer's confirmation that the bed was cleared.
+            msg = (
+                "The printer still shows the last print as completed. "
+                "Clear the bed and confirm on the printer's screen first"
+            )
+            raise HomeAssistantError(msg)
         if printer.machine_status != "READY":
-            msg = "printer status is not READY"
+            msg = (
+                f"The printer is {printer.machine_status}, "
+                "it must be READY to start a print"
+            )
             raise HomeAssistantError(msg)
         pr = await printer.network.sendPrintRequest(file=filename)
         _LOGGER.debug("print_file: %s", pr)

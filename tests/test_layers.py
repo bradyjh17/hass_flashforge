@@ -104,3 +104,28 @@ def test_no_reading() -> None:
     readings = [(PRINTING, None, None), (PRINTING, 5, 108), (PRINTING, None, 108)]
 
     assert feed(LayerFilter(), readings) == [None, 5, 5]
+
+
+@pytest.mark.parametrize(
+    ("readings", "expected"),
+    [
+        # Waiting above the bed for two and three updates.
+        ([0, 26, 26, 2, 2, 3], [0, 0, 26, 26, 2, 2]),
+        ([0, 26, 26, 26, 2, 2, 3], [0, 0, 26, 26, 26, 2, 2]),
+        # One layer lower isn't enough to go back.
+        ([0, 26, 3, 2, 2, 2, 3], [0, 0, 3, 3, 3, 3, 3]),
+    ],
+)
+def test_follows_the_printer_down(readings: list[int], expected: list[int]) -> None:
+    """Test a high reading that got through is corrected by two lower ones."""
+    shown = feed(LayerFilter(), [(PRINTING, layer, 108) for layer in readings])
+
+    assert shown == expected
+
+
+def test_paused_reading_is_ignored() -> None:
+    """Test a reading while parked doesn't pull the layer down after resuming."""
+    readings = [(PRINTING, layer, 108) for layer in (0, 10, 11, 12)]
+    readings += [("PAUSED", 0, 108), ("PAUSED", 0, 108), (PRINTING, 12, 108)]
+
+    assert feed(LayerFilter(), readings) == [0, 0, 10, 11, 11, 11, 12]

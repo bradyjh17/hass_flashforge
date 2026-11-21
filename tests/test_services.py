@@ -27,6 +27,7 @@ async def _set_status(
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize(
     ("status", "message"),
     [
@@ -35,12 +36,11 @@ async def _set_status(
     ],
 )
 async def test_print_file_needs_ready(
-    enable_custom_integrations,
     hass: HomeAssistant,
     mock_printer_network: MagicMock,
     status: str,
     message: str,
-):
+) -> None:
     """Test a print is only started when the printer is READY."""
     entry = await init_integration(hass)
     response = STATUS_PRINTING.replace("BUILDING_FROM_SD", status)
@@ -54,9 +54,10 @@ async def test_print_file_needs_ready(
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_print_file_when_ready(
-    enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
-):
+    hass: HomeAssistant, mock_printer_network: MagicMock
+) -> None:
     """Test a print is started when the printer is READY."""
     entry = await init_integration(hass)
     await _set_status(hass, entry.entry_id, mock_printer_network, STATUS_READY)

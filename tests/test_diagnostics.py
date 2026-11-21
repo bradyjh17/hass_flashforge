@@ -1,7 +1,6 @@
 """Tests for the Flashforge diagnostics."""
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -17,9 +16,8 @@ PRINT_LAYER = 44
 
 
 @pytest.mark.asyncio
-async def test_diagnostics_leave_out_private_data(
-    enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
-):
+@pytest.mark.usefixtures("enable_custom_integrations", "mock_printer_network")
+async def test_diagnostics_leave_out_private_data(hass: HomeAssistant) -> None:
     """Test the diagnostics have the printer state but nothing private."""
     entry = await init_integration(hass)
 

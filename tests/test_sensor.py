@@ -6,6 +6,7 @@ from itertools import count
 from unittest.mock import MagicMock, patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
@@ -112,17 +113,24 @@ async def test_unload_integration_and_sensors(
 async def test_sensor_update_error(
     enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
 ):
-    """Test Flashforge sensors are unavailable after an update error."""
+    """Test a short glitch is ridden out, sensors are unavailable after that."""
     entry = await init_integration(hass)
+    coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     # Change printer respond.
     mock_printer_network.sendStatusRequest.side_effect = ConnectionError("conn_error")
 
-    # Request sensor update.
-    coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    for _ in range(MAX_FAILED_UPDATES - 1):
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+        assert coordinator.last_update_success
+        assert hass.states.get("sensor.adventurer4_status").state == "BUILDING_FROM_SD"
+
     await coordinator.async_refresh()
     await hass.async_block_till_done()
 
+    assert not coordinator.last_update_success
+    assert "conn_error" in str(coordinator.last_exception)
     for expected in SENSORS:
         state = hass.states.get(expected["entity_id"])
         assert state.state == STATE_UNAVAILABLE
@@ -132,25 +140,33 @@ async def test_sensor_update_error(
 async def test_sensor_update_error2(
     enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
 ):
-    """Test Flashforge sensors are unavailable after an update error."""
+    """Test a printer that times out isn't asked again right away."""
     entry = await init_integration(hass)
     INIT_CALL_COUNT = 3
 
     # Change printer respond.
-    mock_printer_network.sendStatusRequest.side_effect = TimeoutError("timeout")
+    mock_printer_network.sendStatusRequest.side_effect = TimeoutError()
 
     # Request sensor update.
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-    await coordinator.async_refresh()
-    await hass.async_block_till_done()
+    for refresh in range(1, MAX_FAILED_UPDATES + 1):
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+        # One request per update, no retries in between.
+        assert (
+            mock_printer_network.sendStatusRequest.call_count
+            == INIT_CALL_COUNT + refresh
+        )
 
-    assert (
-        mock_printer_network.sendStatusRequest.call_count
-        == INIT_CALL_COUNT + MAX_FAILED_UPDATES
-    )
+    assert not coordinator.last_update_success
+    assert "No answer from the printer" in str(coordinator.last_exception)
     for expected in SENSORS:
         state = hass.states.get(expected["entity_id"])
         assert state.state == STATE_UNAVAILABLE
+
+    # Still failing, still unavailable.
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
 
 
 @pytest.mark.asyncio
@@ -171,7 +187,8 @@ async def test_sensor_update_hanging_printer(
     with patch(
         "custom_components.flashforge.data_update_coordinator.UPDATE_TIMEOUT", 0.01
     ):
-        await asyncio.wait_for(coordinator.async_refresh(), 5)
+        for _ in range(MAX_FAILED_UPDATES):
+            await asyncio.wait_for(coordinator.async_refresh(), 5)
     await hass.async_block_till_done()
 
     assert not coordinator.last_update_success
@@ -189,6 +206,19 @@ async def test_sensor_update_hanging_printer(
 
     assert coordinator.last_update_success
     assert hass.states.get("sensor.adventurer4_status").state == "BUILDING_FROM_SD"
+
+
+@pytest.mark.asyncio
+async def test_setup_fails_on_first_error(
+    enable_custom_integrations, hass: HomeAssistant, mock_printer_network: MagicMock
+):
+    """Test setup is retried later when the printer doesn't answer at all."""
+    mock_printer_network.sendStatusRequest.side_effect = TimeoutError()
+
+    entry = await init_integration(hass)
+
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert mock_printer_network.sendStatusRequest.call_count == 1
 
 
 @pytest.mark.asyncio

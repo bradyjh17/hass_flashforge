@@ -55,6 +55,7 @@ class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
             "status": None,
         }
         self.failedupdates = 0
+        self._updated_once = False
         self._estimator = PrintTimeEstimator()
         self.job_remaining: int | None = None
         self.job_end: datetime | None = None
@@ -65,20 +66,28 @@ class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
             async with asyncio.timeout(UPDATE_TIMEOUT):
                 await self.printer.update()
                 files = await self.printer.network.sendGetFileNames()
-        except (TimeoutError, ConnectionError) as err:
+        except OSError as err:
+            # TimeoutError and ConnectionError are both OSErrors.
             # ffpp 0.0.15 keeps the socket open when a request is cancelled,
             # the next request would read the stale reply. Start over.
             await self.printer.network.disconnect()
+            if isinstance(err, TimeoutError):
+                msg = f"No answer from the printer within {UPDATE_TIMEOUT} s"
+            else:
+                msg = f"Can't connect to the printer: {err}"
             self.failedupdates += 1
-            if self.failedupdates >= MAX_FAILED_UPDATES:
-                self.failedupdates = 0
-                raise UpdateFailed(err) from err
-            return await self.async_update_data()
+            if self.failedupdates >= MAX_FAILED_UPDATES or not self._updated_once:
+                raise UpdateFailed(msg) from err
+            # Ride out a short glitch: keep the last values until the next poll
+            # instead of retrying right away.
+            _LOGGER.debug("%s (%s of %s)", msg, self.failedupdates, MAX_FAILED_UPDATES)
+            return self.data
 
         if not files:
             files = []
         files = [f.removeprefix("/data/") for f in files]
         self.failedupdates = 0
+        self._updated_once = True
         self._update_job_estimate()
 
         return {"status": self.printer.machine_status, "files": files}

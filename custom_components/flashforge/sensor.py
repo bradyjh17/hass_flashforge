@@ -78,11 +78,6 @@ SENSORS: tuple[FlashforgeSensorEntityDescription, ...] = (
         value_fnc=lambda printer: printer.job_layers,
     ),
     FlashforgeSensorEntityDescription(
-        key="print_layer",
-        icon="mdi:layers-edit",
-        value_fnc=lambda printer: printer.print_layer,
-    ),
-    FlashforgeSensorEntityDescription(
         key="print_status",
         icon="mdi:printer-3d",
         value_fnc=lambda printer: printer.status,
@@ -94,6 +89,11 @@ SENSORS: tuple[FlashforgeSensorEntityDescription, ...] = (
     ),
 )
 JOB_SENSORS: tuple[FlashforgeJobSensorEntityDescription, ...] = (
+    FlashforgeJobSensorEntityDescription(
+        key="print_layer",
+        icon="mdi:layers-edit",
+        value_fnc=lambda coordinator: coordinator.print_layer,
+    ),
     FlashforgeJobSensorEntityDescription(
         key="job_remaining",
         icon="mdi:timer-sand",

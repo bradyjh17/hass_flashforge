@@ -56,6 +56,13 @@ SENSORS = (
         "unique_id": "SNADVA1234567_job_percentage",
     },
     {
+        # Same unique ID as before the layer was smoothed.
+        "entity_id": "sensor.adventurer4_print_layer",
+        "state": "44",
+        "name": "Adventurer4 Print Layer",
+        "unique_id": "SNADVA1234567_print_layer",
+    },
+    {
         # Not enough progress for an estimate.
         "entity_id": "sensor.adventurer4_job_remaining",
         "state": "unknown",

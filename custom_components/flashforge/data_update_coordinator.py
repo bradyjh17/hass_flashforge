@@ -20,6 +20,7 @@ from .const import (
     UPDATE_TIMEOUT,
 )
 from .estimator import PrintTimeEstimator
+from .layers import LayerFilter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +31,12 @@ def _to_float(value: object) -> float | None:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
+
+
+def _to_int(value: object) -> int | None:
+    """Convert a printer value to a whole number."""
+    number = _to_float(value)
+    return None if number is None else int(number)
 
 
 class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
@@ -57,6 +64,7 @@ class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
         self.failedupdates = 0
         self._updated_once = False
         self._estimator = PrintTimeEstimator()
+        self._layer_filter = LayerFilter()
         self.job_remaining: int | None = None
         self.job_end: datetime | None = None
 
@@ -89,8 +97,18 @@ class FlashForgeDataUpdateCoordinator(DataUpdateCoordinator):
         self.failedupdates = 0
         self._updated_once = True
         self._update_job_estimate()
+        self._layer_filter.update(
+            status=self.printer.machine_status,
+            layer=_to_int(self.printer.print_layer),
+            total=_to_int(self.printer.job_layers),
+        )
 
         return {"status": self.printer.machine_status, "files": files}
+
+    @property
+    def print_layer(self) -> int | None:
+        """Current layer, without the printer's short jumps."""
+        return self._layer_filter.value
 
     def _update_job_estimate(self) -> None:
         self._estimator.update(

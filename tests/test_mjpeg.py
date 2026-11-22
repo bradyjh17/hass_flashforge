@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import aiohttp
 import pytest
+from aiohttp import web
+from aiohttp.test_utils import TestServer
 
 from custom_components.flashforge import mjpeg
 from custom_components.flashforge.mjpeg import (
@@ -410,3 +412,31 @@ async def test_slow_viewer_does_not_hold_up_others(
             result = await broadcaster.async_next_frame(seq, wait=3)
             assert result is not None
             seq = result[0]
+
+
+async def test_redirect_is_not_followed(
+    session: aiohttp.ClientSession, camera: FakeSingleClientCamera
+) -> None:
+    """A camera address that redirects elsewhere is treated as a failure."""
+
+    async def redirect(_: web.Request) -> web.Response:
+        raise web.HTTPFound(camera.url)
+
+    app = web.Application()
+    app.router.add_get("/", redirect)
+    server = TestServer(app, host="127.0.0.1")
+    await server.start_server()
+    broadcaster = MjpegBroadcaster(
+        session,
+        str(server.make_url("/?action=stream")),
+        grace=GRACE,
+        retry_delays=FAST_RETRY,
+    )
+    try:
+        async with broadcaster.subscribe():
+            assert await broadcaster.async_next_frame(0, wait=0.5) is None
+        assert broadcaster.connection_attempts >= 1
+        assert camera.connections == 0
+    finally:
+        await broadcaster.async_stop()
+        await server.close()

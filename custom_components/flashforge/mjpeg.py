@@ -23,6 +23,7 @@ import contextlib
 import logging
 import time
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -397,8 +398,15 @@ class MjpegBroadcaster:
             total=None, sock_connect=CONNECT_TIMEOUT, sock_read=READ_TIMEOUT
         )
         self.connection_attempts += 1
-        async with self._session.get(self._url, timeout=timeout) as response:
+        # Don't follow redirects: whatever answers on the camera's address
+        # must not be able to send Home Assistant to another host.
+        async with self._session.get(
+            self._url, timeout=timeout, allow_redirects=False
+        ) as response:
             response.raise_for_status()
+            if response.status != HTTPStatus.OK:
+                msg = f"unexpected camera response {response.status}"
+                raise aiohttp.ClientError(msg)
             parser = MjpegFrameParser()
             async for chunk in response.content.iter_any():
                 for frame in parser.feed(chunk):

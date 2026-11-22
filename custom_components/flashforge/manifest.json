@@ -2,17 +2,17 @@
   "domain": "flashforge",
   "name": "Flashforge",
   "codeowners": [
-    "@joseffallman"
+    "@bradyjh17"
   ],
   "config_flow": true,
   "dependencies": [
     "network"
   ],
-  "documentation": "https://github.com/joseffallman/hass_flashforge",
+  "documentation": "https://github.com/bradyjh17/hass_flashforge",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/joseffallman/hass_flashforge/issues",
+  "issue_tracker": "https://github.com/bradyjh17/hass_flashforge/issues",
   "requirements": [
     "ffpp==0.0.15"
   ],
-  "version": "v0.2.1-bjh.3"
+  "version": "v0.2.1-bjh.4"
 }

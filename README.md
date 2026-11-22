@@ -1,54 +1,136 @@
-# FlashForge 3D Printer
+# FlashForge 3D printer for Home Assistant
 
-[![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
-
 [![hacs][hacsbadge]][hacs]
 
-For newer printers, check out this repo:
-https://github.com/GhostTypes/ff-5mp-hass
+Monitor and control a FlashForge 3D printer from Home Assistant over your local network.
+No cloud account is needed.
 
+This is a fork of [joseffallman/hass_flashforge][upstream], the original integration.
+It keeps the same features and adds fixes found while using it every day on an Adventurer 5M.
 
-# About
-_Integration to integrate with [FlashForge 3D printers][flashforge]._
+## What this fork changes
 
-**This integration will set up the following platforms.**
+- **Camera works for several viewers at once.** The printer's camera only accepts one
+  connection, so a second dashboard or phone used to freeze it. The integration now keeps
+  one connection to the printer and shares it.
+- **Time remaining and finish time sensors**, estimated from the print progress.
+- **Steadier current layer.** The printer sometimes reports a layer or two ahead for a
+  moment (for example during a Z hop). The layer sensor smooths that out and never runs
+  past the total.
+- **Rides out short printer glitches.** One or two missed answers keep the last values;
+  the sensors only go unavailable when the printer stays silent, with a clear reason in
+  the log.
+- **Clearer errors**, for example why a print can't start.
+- **Diagnostics download** for bug reports, with the serial number and IP address removed.
+- Updated dependencies and tests.
 
-Platform | Description
--- | --
-`sensor` | Show info from your 3d printer. <ul><li>temp sensors (bed and extruder)</li><li>Print progress</li><li>Printer status</li></ul>
-`camera` | Printer camera if exists.
+## Compatibility
 
-# Installation
-## Manual installation process.
-1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
-1. If you do not have a `custom_components` directory (folder) there, you need to create it.
-1. In the `custom_components` directory (folder) create a new folder called `flashforge`.
-1. Download _all_ the files from the `custom_components/flashforge/` directory (folder) in this repository.
-1. Place the files you downloaded in the new directory (folder) you created.
-## Install through HACS
-1. Add this repo as a custom repo in HACS by clicking on the three dots in the right corner in HACS
-1. Select "custom repositories" and add "joseffallman/hass_flashforge" as a integration category.
-1. Restart Home Assistant
+| Printer | Firmware | Status |
+|---|---|---|
+| Adventurer 5M | 5.2.0 | Tested, used daily |
+| Adventurer 5M Pro, AD5X | | Should work (same network protocol), not tested |
+| Adventurer 3 / 4 | | Supported by the original integration, not tested with this fork |
+| Creator 5 / 5 Pro | | Not supported (it doesn't have the network protocol this integration uses) |
 
-## Configuration is done in the UI
-1. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "FlashForge"
-<!---->
+If you use it on another printer or firmware, please open an issue with the diagnostics
+file (see [Reporting a problem](#reporting-a-problem)) so the table can be updated.
 
+## Installation
 
-# Contributions are welcome!
+### Through HACS (recommended)
 
-If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
+1. In HACS, open the three-dot menu and choose **Custom repositories**.
+2. Add `https://github.com/bradyjh17/hass_flashforge` with the type **Integration**.
+3. Find **FlashForge** in HACS, download it and restart Home Assistant.
 
-***
+### Manually
 
-[flashforge]: https://github.com/joseffallman/hass_flashforge
-[commits-shield]: https://img.shields.io/github/commit-activity/y/joseffallman/hass_flashforge.svg?style=for-the-badge
-[commits]: https://github.com/joseffallman/hass_flashforge/commits/main
+Copy the `custom_components/flashforge` folder from this repository into the
+`custom_components` folder of your Home Assistant configuration, then restart Home Assistant.
+
+### Switching from the original integration
+
+This fork uses the same integration name (`flashforge`), so only one of the two can be
+installed. In HACS, remove the original repository, add this one as above and restart.
+Your printer stays set up, and its entities and history keep working, because the entity
+IDs are built the same way.
+
+## Setup
+
+Go to **Settings → Devices & services → Add integration** and search for **FlashForge**.
+
+- Leave the IP address empty to search for the printer on your network, or enter it.
+  Searching only works when the printer is on the same network as Home Assistant; on a
+  separate network (VLAN), enter the IP address.
+- The port is `8899` (the default).
+
+Give the printer a fixed IP address in your router so Home Assistant can keep finding it.
+
+## What you get
+
+| Type | Entities |
+|---|---|
+| Sensors | Status, raw status, progress, current file, current layer, total layers, time remaining, finish time, move mode, nozzle and bed temperature and their targets |
+| Camera | The printer camera, when it has one |
+| Light | The printer light, on and off |
+| Buttons | Pause, continue, cancel, print the selected file |
+| Select | List of the files stored on the printer |
+
+Actions (services) are also available: `flashforge.pause`, `flashforge.continue_print`,
+`flashforge.abort`, `flashforge.print_file` and `flashforge.get_file_names`.
+
+## Good to know
+
+- **Time remaining and finish time are estimates.** The printer doesn't report the time
+  left, so they are worked out from how fast the progress goes up. They stay empty until
+  the print is about 5 % in, can be well off early in a print, and get close towards the
+  end. For a "nearly done" notification, trigger on progress (for example 80 %) and read
+  the finish time then.
+- **Starting a print needs the printer READY.** After a print finishes, clear the bed and
+  confirm on the printer's screen first.
+- **The printer is polled every 30 seconds** over your local network. If it is switched
+  off, its entities show as unavailable until it is back.
+
+### Example: notify when a print finishes
+
+```yaml
+automation:
+  - alias: "3D print finished"
+    triggers:
+      - trigger: state
+        entity_id: sensor.YOUR_PRINTER_status
+        from: BUILDING_FROM_SD
+        to: BUILDING_COMPLETED
+    actions:
+      - action: notify.notify
+        data:
+          message: "{{ states('sensor.YOUR_PRINTER_current_file') }} has finished."
+```
+
+Replace the entity IDs with your printer's status and current file sensors (see
+**Settings → Devices & services → FlashForge → entities**).
+
+## Reporting a problem
+
+1. Go to **Settings → Devices & services → FlashForge**, open the three-dot menu and choose
+   **Download diagnostics**. The file has the printer's serial number and IP address
+   removed. Home Assistant also adds a section listing your Home Assistant version and
+   other custom integrations; look through it before attaching.
+2. [Open an issue][issues] with your printer model, firmware version and the file.
+
+## Credits and licence
+
+Based on [hass_flashforge][upstream] by Josef Fällman, and the [ffpp][ffpp] library.
+MIT licence, see [LICENSE](LICENSE).
+
+[upstream]: https://github.com/joseffallman/hass_flashforge
+[ffpp]: https://pypi.org/project/ffpp/
+[issues]: https://github.com/bradyjh17/hass_flashforge/issues
+[commits-shield]: https://img.shields.io/github/commit-activity/y/bradyjh17/hass_flashforge.svg?style=for-the-badge
+[commits]: https://github.com/bradyjh17/hass_flashforge/commits/main
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[exampleimg]: example.png
-[license-shield]: https://img.shields.io/github/license/joseffallman/hass_flashforge.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/joseffallman/hass_flashforge.svg?style=for-the-badge
-[releases]: https://github.com/joseffallman/hass_flashforge/releases
+[license-shield]: https://img.shields.io/github/license/bradyjh17/hass_flashforge.svg?style=for-the-badge

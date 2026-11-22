@@ -24,6 +24,8 @@ It keeps the same features and adds fixes found while using it every day on an A
   the sensors only go unavailable when the printer stays silent, with a clear reason in
   the log.
 - **Clearer errors**, for example why a print can't start.
+- **Safer commands.** File names are checked before they reach the printer, actions give
+  up when the printer stops answering, and the camera doesn't follow redirects.
 - **Diagnostics download** for bug reports, with the serial number and IP address removed.
 - Updated dependencies and tests.
 
@@ -106,6 +108,8 @@ Actions (services) are also available: `flashforge.pause`, `flashforge.continue_
   the finish time then.
 - **Starting a print needs the printer READY.** After a print finishes, clear the bed and
   confirm on the printer's screen first.
+- **`flashforge.print_file` only takes a plain file name** stored on the printer. Names
+  with line breaks, `~`, `/` or `\` are refused, so they can't add printer commands.
 - **The printer is polled every 30 seconds** over your local network. If it is switched
   off, its entities show as unavailable until it is back.
 

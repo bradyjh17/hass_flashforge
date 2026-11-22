@@ -26,7 +26,7 @@ STREAM_END_LIMIT = 5.0  # seconds for a live stream to end after unload
 
 
 @pytest.fixture
-async def camera(socket_enabled: None) -> AsyncIterator[FakeSingleClientCamera]:  # noqa: ARG001
+async def camera(socket_enabled: None) -> AsyncIterator[FakeSingleClientCamera]:
     """Run a fake single-client camera on localhost."""
     cam = FakeSingleClientCamera()
     await cam.start()
@@ -45,7 +45,7 @@ async def setup_camera(
     return entry.entry_id, entity_id
 
 
-async def wait_until(predicate, limit: float = 3.0) -> None:  # noqa: ANN001
+async def wait_until(predicate, limit: float = 3.0) -> None:
     """Poll until predicate() is true."""
     async with asyncio.timeout(limit):
         while not predicate():  # noqa: ASYNC110
@@ -53,7 +53,7 @@ async def wait_until(predicate, limit: float = 3.0) -> None:  # noqa: ANN001
 
 
 async def test_camera_entity(
-    enable_custom_integrations: None,  # noqa: ARG001
+    enable_custom_integrations: None,
     hass: HomeAssistant,
     mock_printer_network: MagicMock,
     camera: FakeSingleClientCamera,
@@ -66,7 +66,7 @@ async def test_camera_entity(
 
 
 async def test_snapshot(
-    enable_custom_integrations: None,  # noqa: ARG001
+    enable_custom_integrations: None,
     hass: HomeAssistant,
     hass_client: ClientSessionGenerator,
     mock_printer_network: MagicMock,
@@ -77,14 +77,14 @@ async def test_snapshot(
     client = await hass_client()
 
     response = await client.get(f"/api/camera_proxy/{entity_id}")
-    assert response.status == 200  # noqa: PLR2004
+    assert response.status == 200
     body = await response.read()
     assert body.startswith(SOI)
     assert body.endswith(EOI)
 
 
 async def test_live_viewers_and_snapshots_share_one_connection(
-    enable_custom_integrations: None,  # noqa: ARG001
+    enable_custom_integrations: None,
     hass: HomeAssistant,
     hass_client: ClientSessionGenerator,
     mock_printer_network: MagicMock,
@@ -98,12 +98,12 @@ async def test_live_viewers_and_snapshots_share_one_connection(
     viewer2 = await client.get(f"/api/camera_proxy_stream/{entity_id}")
     try:
         for viewer in (viewer1, viewer2):
-            assert viewer.status == 200  # noqa: PLR2004
+            assert viewer.status == 200
             for _ in range(3):
                 assert SOI in await viewer.content.readuntil(EOI)
         for _ in range(3):
             snapshot = await client.get(f"/api/camera_proxy/{entity_id}")
-            assert snapshot.status == 200  # noqa: PLR2004
+            assert snapshot.status == 200
             assert (await snapshot.read()).startswith(SOI)
         assert camera.connections == 1
         assert camera.rejected == 0
@@ -118,7 +118,7 @@ async def test_live_viewers_and_snapshots_share_one_connection(
 
 
 async def test_busy_camera_snapshot_fails_cleanly(
-    enable_custom_integrations: None,  # noqa: ARG001
+    enable_custom_integrations: None,
     hass: HomeAssistant,
     hass_client: ClientSessionGenerator,
     mock_printer_network: MagicMock,
@@ -132,13 +132,13 @@ async def test_busy_camera_snapshot_fails_cleanly(
     try:
         await other_app.content.readuntil(EOI)
         response = await client.get(f"/api/camera_proxy/{entity_id}")
-        assert response.status >= 500  # noqa: PLR2004
+        assert response.status >= 500
     finally:
         other_app.close()
 
 
 async def test_unload_stops_stream(
-    enable_custom_integrations: None,  # noqa: ARG001
+    enable_custom_integrations: None,
     hass: HomeAssistant,
     hass_client: ClientSessionGenerator,
     mock_printer_network: MagicMock,

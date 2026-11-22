@@ -47,7 +47,7 @@ class FakeSingleClientCamera:
     @property
     def url(self) -> str:
         """Return the stream URL."""
-        assert self.server is not None  # noqa: S101
+        assert self.server is not None
         return str(self.server.make_url("/?action=stream"))
 
     async def start(self) -> None:

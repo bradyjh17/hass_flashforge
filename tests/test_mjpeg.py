@@ -31,7 +31,7 @@ MAX_RECONNECT_TIME = 4.0  # 15 frames with 5 prompt reconnects
 
 
 @pytest.fixture
-async def camera(socket_enabled: None) -> AsyncIterator[FakeSingleClientCamera]:  # noqa: ARG001
+async def camera(socket_enabled: None) -> AsyncIterator[FakeSingleClientCamera]:
     """Run a fake single-client camera on localhost."""
     cam = FakeSingleClientCamera()
     await cam.start()
@@ -40,7 +40,7 @@ async def camera(socket_enabled: None) -> AsyncIterator[FakeSingleClientCamera]:
 
 
 @pytest.fixture
-async def session(socket_enabled: None) -> AsyncIterator[aiohttp.ClientSession]:  # noqa: ARG001
+async def session(socket_enabled: None) -> AsyncIterator[aiohttp.ClientSession]:
     """Provide a client session."""
     async with aiohttp.ClientSession() as client_session:
         yield client_session
@@ -359,7 +359,7 @@ async def test_unexpected_error_is_logged_and_retried(
         async with broadcaster.subscribe():
             assert await broadcaster.async_next_frame(0, wait=3) is not None
     assert "unexpected camera stream error" in caplog.text
-    assert camera.connections >= 2  # noqa: PLR2004
+    assert camera.connections >= 2
 
 
 async def test_cancelled_waiter_leaves_broadcaster_usable(

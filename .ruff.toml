@@ -14,6 +14,28 @@ ignore = [
     "ISC001", # incompatible with formatter
 ]
 
+[lint.per-file-ignores]
+# Tests use plain asserts, pytest fixtures that are only requested for their
+# side effect, and literal expected values.
+"tests/**" = [
+    "S101",    # assert
+    "ANN001",  # fixture arguments without type annotation
+    "ANN003",  # **kwargs without type annotation
+    "ANN201",  # test functions without return type
+    "ARG001",  # fixtures requested only for their side effect
+    "PLR2004", # literal expected values
+]
+# Findings in code unchanged from the original project. Left as they are so
+# changes from the original still merge cleanly.
+"custom_components/flashforge/light.py" = [
+    "ANN001", "ANN003", "ANN201", "ANN204", "ARG002", "D202", "D213", "TC001", "TC002",
+]
+"custom_components/flashforge/select.py" = ["B006", "ERA001"]
+"tests/__init__.py" = ["EM102", "FBT001", "FBT002", "TRY003"]
+"tests/conftest.py" = ["TC002"]
+"tests/test_config_flow.py" = ["D202", "PGH003"]
+"tests/test_sensor.py" = ["N806", "TC002"]
+
 [lint.flake8-pytest-style]
 fixture-parentheses = false
 

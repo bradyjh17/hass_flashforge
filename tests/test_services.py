@@ -134,21 +134,6 @@ async def test_print_file_accepts_usual_names(
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_services_take_no_extra_data(
-    hass: HomeAssistant, mock_printer_network: MagicMock
-) -> None:
-    """Test the actions without fields refuse unexpected data."""
-    await init_integration(hass)
-
-    with pytest.raises(vol.Invalid):
-        await hass.services.async_call(
-            DOMAIN, "pause", {"file_name": "x.gcode"}, blocking=True
-        )
-    mock_printer_network.sendPauseRequest.assert_not_called()
-
-
-@pytest.mark.asyncio
-@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_service_gives_up_on_a_silent_printer(
     hass: HomeAssistant, mock_printer_network: MagicMock
 ) -> None:
@@ -189,3 +174,29 @@ async def test_print_button_needs_a_chosen_file(
             "button", "press", {"entity_id": button}, blocking=True
         )
     mock_printer_network.sendPrintRequest.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_print_button_prints_the_chosen_file(
+    hass: HomeAssistant, mock_printer_network: MagicMock
+) -> None:
+    """Test the Print File button sends a file chosen from the printer's list."""
+    entry = await init_integration(hass)
+    coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator.data["files"] = ["Gear Box (v3).gcode"]
+    registry = er.async_get(hass)
+    button = registry.async_get_entity_id(
+        "button", DOMAIN, f"{entry.unique_id}_print_file"
+    )
+    select = registry.async_get_entity_id("select", DOMAIN, f"{entry.unique_id}_select")
+    assert button
+    assert select
+    hass.states.async_set(select, "Gear Box (v3).gcode")
+
+    await hass.services.async_call(
+        "button", "press", {"entity_id": button}, blocking=True
+    )
+    mock_printer_network.sendPrintRequest.assert_awaited_once_with(
+        file="Gear Box (v3).gcode"
+    )

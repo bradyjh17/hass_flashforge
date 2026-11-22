@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .commands import printer_command
 from .const import DOMAIN
 from .data_update_coordinator import FlashForgeDataUpdateCoordinator
 
@@ -61,14 +62,16 @@ class FlashForgeLightEntity(CoordinatorEntity, LightEntity):
 
     async def async_turn_on(self, **kwargs):
         """Turn the light on."""
-        await self.coordinator.printer.setLed(True)
+        async with printer_command(self.coordinator.printer):
+            await self.coordinator.printer.setLed(True)
 
         # Update the data
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         """Turn the light off."""
-        await self.coordinator.printer.setLed(False)
+        async with printer_command(self.coordinator.printer):
+            await self.coordinator.printer.setLed(False)
 
         # Update the data
         await self.coordinator.async_request_refresh()

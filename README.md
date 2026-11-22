@@ -73,6 +73,8 @@ Go to **Settings → Devices & services → Add integration** and search for **F
 - The port is `8899` (the default).
 
 Give the printer a fixed IP address in your router so Home Assistant can keep finding it.
+If its address does change, add the integration again and type the new IP address; the
+existing printer is moved to it. Searching won't move a printer that is already set up.
 
 ## What you get
 

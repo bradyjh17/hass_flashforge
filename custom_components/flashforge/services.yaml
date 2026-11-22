@@ -16,7 +16,7 @@ print_file:
   fields:
     file_name:
       name: "file name"
-      description: "Name of a file stored on the printer, without the /data/ prefix. Line breaks, ~, / and \ are not allowed."
+      description: "Name of a file stored on the printer, without the /data/ prefix. Line breaks, ~, / and backslashes are not allowed."
       example: "Apos_PLA_14m16s.gcode"
       required: true
       selector:

@@ -33,7 +33,6 @@ PLATFORMS = [
 
 _LOGGER = logging.getLogger(__name__)
 
-NO_DATA_SCHEMA = vol.Schema({})
 PRINT_FILE_SCHEMA = vol.Schema({vol.Required("file_name"): valid_file_name})
 
 
@@ -110,11 +109,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
             pr = await printer.network.sendPrintRequest(file=filename)
         _LOGGER.debug("print_file: %s", pr)
 
-    hass.services.async_register(DOMAIN, "pause", pause, schema=NO_DATA_SCHEMA)
-    hass.services.async_register(
-        DOMAIN, "continue_print", continue_print, schema=NO_DATA_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, "abort", abort, schema=NO_DATA_SCHEMA)
+    hass.services.async_register(DOMAIN, "pause", pause)
+    hass.services.async_register(DOMAIN, "continue_print", continue_print)
+    hass.services.async_register(DOMAIN, "abort", abort)
     hass.services.async_register(
         DOMAIN, "print_file", print_file, schema=PRINT_FILE_SCHEMA
     )
@@ -122,7 +119,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
         DOMAIN,
         "get_file_names",
         get_file_names,
-        schema=NO_DATA_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
 

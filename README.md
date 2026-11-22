@@ -15,7 +15,8 @@ It keeps the same features and adds fixes found while using it every day on an A
 - **Camera works for several viewers at once.** The printer's camera only accepts one
   connection, so a second dashboard or phone used to freeze it. The integration now keeps
   one connection to the printer and shares it.
-- **Time remaining and finish time sensors**, estimated from the print progress.
+- **Time remaining and finish time sensors**, estimated from the print progress (from a
+  pull request to the original project, see [Credits](#credits-and-licence)).
 - **Steadier current layer.** The printer sometimes reports a layer or two ahead for a
   moment (for example during a Z hop). The layer sensor smooths that out and never runs
   past the total.
@@ -40,6 +41,8 @@ file (see [Reporting a problem](#reporting-a-problem)) so the table can be updat
 
 ## Installation
 
+Requires Home Assistant 2026.2 or newer.
+
 ### Through HACS (recommended)
 
 1. In HACS, open the three-dot menu and choose **Custom repositories**.
@@ -55,8 +58,8 @@ Copy the `custom_components/flashforge` folder from this repository into the
 
 This fork uses the same integration name (`flashforge`), so only one of the two can be
 installed. In HACS, remove the original repository, add this one as above and restart.
-Your printer stays set up, and its entities and history keep working, because the entity
-IDs are built the same way.
+Your printer should stay set up with its entities and history, because this fork builds
+the entity IDs the same way as the original.
 
 ## Setup
 
@@ -71,13 +74,25 @@ Give the printer a fixed IP address in your router so Home Assistant can keep fi
 
 ## What you get
 
-| Type | Entities |
+Default names (you can rename them in Home Assistant):
+
+| Entity | What it shows or does |
 |---|---|
-| Sensors | Status, raw status, progress, current file, current layer, total layers, time remaining, finish time, move mode, nozzle and bed temperature and their targets |
+| Print Status | Printer state, for example `READY`, `BUILDING_FROM_SD` (printing), `PAUSED`, `BUILDING_COMPLETED` |
+| Status | Raw status line from the printer |
+| Job Percentage | Print progress in % |
+| File | File being printed |
+| Print Layer / Layers | Current layer and total layers |
+| Job Remaining / Job End | Estimated time remaining and finish time |
+| Move Mode | Motion state reported by the printer |
+| Extruder and Bed Current / Target | Nozzle and bed temperature and their targets |
 | Camera | The printer camera, when it has one |
 | Light | The printer light, on and off |
-| Buttons | Pause, continue, cancel, print the selected file |
-| Select | List of the files stored on the printer |
+| Abort, Continue, Pause, Print File (buttons) | Control the current print, or print the file chosen in File list |
+| File list (select) | Files stored on the printer |
+
+Sensor entity IDs start with the printer's serial number, for example
+`sensor.snxxxxxxxxxx_print_status`.
 
 Actions (services) are also available: `flashforge.pause`, `flashforge.continue_print`,
 `flashforge.abort`, `flashforge.print_file` and `flashforge.get_file_names`.
@@ -101,16 +116,16 @@ automation:
   - alias: "3D print finished"
     triggers:
       - trigger: state
-        entity_id: sensor.YOUR_PRINTER_status
+        entity_id: sensor.snxxxxxxxxxx_print_status
         from: BUILDING_FROM_SD
         to: BUILDING_COMPLETED
     actions:
       - action: notify.notify
         data:
-          message: "{{ states('sensor.YOUR_PRINTER_current_file') }} has finished."
+          message: "{{ states('sensor.snxxxxxxxxxx_file') }} has finished."
 ```
 
-Replace the entity IDs with your printer's status and current file sensors (see
+Replace `snxxxxxxxxxx` with your printer's entity IDs (see
 **Settings → Devices & services → FlashForge → entities**).
 
 ## Reporting a problem
@@ -124,6 +139,8 @@ Replace the entity IDs with your printer's status and current file sensors (see
 ## Credits and licence
 
 Based on [hass_flashforge][upstream] by Josef Fällman, and the [ffpp][ffpp] library.
+The time remaining and finish time sensors come from
+[pull request #118](https://github.com/joseffallman/hass_flashforge/pull/118) by da4id.
 MIT licence, see [LICENSE](LICENSE).
 
 [upstream]: https://github.com/joseffallman/hass_flashforge

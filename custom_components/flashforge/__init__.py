@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from ffpp.Printer import Printer
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT, Platform
 from homeassistant.core import (
@@ -15,6 +16,7 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 
+from .commands import printer_command, valid_file_name
 from .const import DOMAIN
 from .data_update_coordinator import FlashForgeDataUpdateCoordinator
 
@@ -30,6 +32,9 @@ PLATFORMS = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
+
+NO_DATA_SCHEMA = vol.Schema({})
+PRINT_FILE_SCHEMA = vol.Schema({vol.Required("file_name"): valid_file_name})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  # noqa: PLR0915
@@ -48,29 +53,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
     async def pause(_: ServiceCall) -> None:
         """Handle the service call."""
         _LOGGER.debug("Pause")
-        await printer.connect()
-        pr = await printer.network.sendPauseRequest()
+        async with printer_command(printer):
+            await printer.connect()
+            pr = await printer.network.sendPauseRequest()
         _LOGGER.debug("pauseRequest: %s", pr)
 
     async def continue_print(_: ServiceCall) -> None:
         """Handle the service call."""
         _LOGGER.debug("Continue")
-        await printer.connect()
-        pr = await printer.network.sendContinueRequest()
+        async with printer_command(printer):
+            await printer.connect()
+            pr = await printer.network.sendContinueRequest()
         _LOGGER.debug("ContinueRequest: %s", pr)
 
     async def abort(_: ServiceCall) -> None:
         """Handle the service call."""
         _LOGGER.debug("Abort")
-        await printer.connect()
-        pr = await printer.network.sendAbortRequest()
+        async with printer_command(printer):
+            await printer.connect()
+            pr = await printer.network.sendAbortRequest()
         _LOGGER.debug("AbortRequest: %s", pr)
 
     async def get_file_names(_: ServiceCall) -> ServiceResponse:
         """Handle the service call."""
         _LOGGER.debug("Get file names")
-        await printer.connect()
-        files_list = await printer.network.sendGetFileNames()
+        async with printer_command(printer):
+            await printer.connect()
+            files_list = await printer.network.sendGetFileNames()
         _LOGGER.debug("FileNames: %s", files_list)
         if not files_list:
             return {"files": []}
@@ -81,32 +90,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
     async def print_file(call: ServiceCall) -> None:
         """Handle the service call."""
         _LOGGER.debug("print_file")
-        filename = call.data.get("file_name")
-        await printer.connect()
-        if printer.machine_status == "BUILDING_COMPLETED":
-            # READY is the printer's confirmation that the bed was cleared.
-            msg = (
-                "The printer still shows the last print as completed. "
-                "Clear the bed and confirm on the printer's screen first"
-            )
-            raise HomeAssistantError(msg)
-        if printer.machine_status != "READY":
-            msg = (
-                f"The printer is {printer.machine_status}, "
-                "it must be READY to start a print"
-            )
-            raise HomeAssistantError(msg)
-        pr = await printer.network.sendPrintRequest(file=filename)
+        # Already checked by PRINT_FILE_SCHEMA, see valid_file_name.
+        filename = call.data["file_name"]
+        async with printer_command(printer):
+            await printer.connect()
+            if printer.machine_status == "BUILDING_COMPLETED":
+                # READY is the printer's confirmation that the bed was cleared.
+                msg = (
+                    "The printer still shows the last print as completed. "
+                    "Clear the bed and confirm on the printer's screen first"
+                )
+                raise HomeAssistantError(msg)
+            if printer.machine_status != "READY":
+                msg = (
+                    f"The printer is {printer.machine_status}, "
+                    "it must be READY to start a print"
+                )
+                raise HomeAssistantError(msg)
+            pr = await printer.network.sendPrintRequest(file=filename)
         _LOGGER.debug("print_file: %s", pr)
 
-    hass.services.async_register(DOMAIN, "pause", pause)
-    hass.services.async_register(DOMAIN, "continue_print", continue_print)
-    hass.services.async_register(DOMAIN, "abort", abort)
-    hass.services.async_register(DOMAIN, "print_file", print_file)
+    hass.services.async_register(DOMAIN, "pause", pause, schema=NO_DATA_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, "continue_print", continue_print, schema=NO_DATA_SCHEMA
+    )
+    hass.services.async_register(DOMAIN, "abort", abort, schema=NO_DATA_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, "print_file", print_file, schema=PRINT_FILE_SCHEMA
+    )
     hass.services.async_register(
         DOMAIN,
         "get_file_names",
         get_file_names,
+        schema=NO_DATA_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
 

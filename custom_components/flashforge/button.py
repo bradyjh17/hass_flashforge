@@ -5,11 +5,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from homeassistant.components.button import ButtonEntity
 from homeassistant.const import Platform
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry
 
-from . import DOMAIN
+from .commands import printer_command, valid_file_name
+from .const import DOMAIN
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -92,8 +95,9 @@ class PrinterButton(ButtonEntity):
         self.coordinator = coordinator
 
     async def async_press(self) -> None:
-        """Send out a persistent notification."""
-        result = await self._action()
+        """Send the command to the printer."""
+        async with printer_command(self.coordinator.printer):
+            result = await self._action()
         _LOGGER.debug("Flashforge printer responded with: %s", result)
 
     @property
@@ -117,5 +121,14 @@ class FilePrinterButton(PrinterButton):
             return
         select_state = self.coordinator.hass.states.get(select_entity)
         state = select_state.state if select_state else None
-        result = await self._action(file=state)
+        try:
+            file_name = valid_file_name(state)
+        except vol.Invalid as err:
+            msg = "Choose a file in the file list first"
+            raise HomeAssistantError(msg) from err
+        if file_name not in (self.coordinator.data.get("files") or []):
+            msg = "Choose a file in the file list first"
+            raise HomeAssistantError(msg)
+        async with printer_command(self.coordinator.printer):
+            result = await self._action(file=file_name)
         _LOGGER.debug("Flashforge printer responded with: %s", result)

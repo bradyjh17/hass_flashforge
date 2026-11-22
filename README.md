@@ -34,7 +34,7 @@ It keeps the same features and adds fixes found while using it every day on an A
 | Adventurer 5M | 5.2.0 | Tested, used daily |
 | Adventurer 5M Pro, AD5X | | Should work (same network protocol), not tested |
 | Adventurer 3 / 4 | | Supported by the original integration, not tested with this fork |
-| Creator 5 / 5 Pro | | Not supported (it doesn't have the network protocol this integration uses) |
+| Creator 5 / 5 Pro | | Not supported: according to community documentation it doesn't have the network protocol this integration uses |
 
 If you use it on another printer or firmware, please open an issue with the diagnostics
 file (see [Reporting a problem](#reporting-a-problem)) so the table can be updated.
@@ -78,8 +78,8 @@ Default names (you can rename them in Home Assistant):
 
 | Entity | What it shows or does |
 |---|---|
-| Print Status | Printer state, for example `READY`, `BUILDING_FROM_SD` (printing), `PAUSED`, `BUILDING_COMPLETED` |
-| Status | Raw status line from the printer |
+| Status | Printer state, for example `READY`, `BUILDING_FROM_SD` (printing), `PAUSED`, `BUILDING_COMPLETED` |
+| Print Status | Raw status line from the printer |
 | Job Percentage | Print progress in % |
 | File | File being printed |
 | Print Layer / Layers | Current layer and total layers |
@@ -91,8 +91,8 @@ Default names (you can rename them in Home Assistant):
 | Abort, Continue, Pause, Print File (buttons) | Control the current print, or print the file chosen in File list |
 | File list (select) | Files stored on the printer |
 
-Sensor entity IDs start with the printer's serial number, for example
-`sensor.snxxxxxxxxxx_print_status`.
+Sensor entity IDs start with the printer's name, or its serial number when the printer
+doesn't report a name, for example `sensor.myprinter_status`.
 
 Actions (services) are also available: `flashforge.pause`, `flashforge.continue_print`,
 `flashforge.abort`, `flashforge.print_file` and `flashforge.get_file_names`.
@@ -116,16 +116,16 @@ automation:
   - alias: "3D print finished"
     triggers:
       - trigger: state
-        entity_id: sensor.snxxxxxxxxxx_print_status
+        entity_id: sensor.myprinter_status
         from: BUILDING_FROM_SD
         to: BUILDING_COMPLETED
     actions:
       - action: notify.notify
         data:
-          message: "{{ states('sensor.snxxxxxxxxxx_file') }} has finished."
+          message: "{{ states('sensor.myprinter_file') }} has finished."
 ```
 
-Replace `snxxxxxxxxxx` with your printer's entity IDs (see
+Replace `myprinter` with the start of your printer's entity IDs (see
 **Settings → Devices & services → FlashForge → entities**).
 
 ## Reporting a problem

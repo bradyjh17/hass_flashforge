@@ -216,3 +216,45 @@ async def test_printer_not_responding(
     mock_printer_network.connect.side_effect = TimeoutError("timeout")
     entry = await init_integration(hass)
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+@pytest.mark.asyncio
+async def test_discovery_does_not_move_existing_printer(
+    enable_custom_integrations,
+    hass: HomeAssistant,
+    mock_printer_network: MagicMock,
+    mock_printer_discovery: MagicMock,
+):
+    """Test a search answer can't change the address of a printer already set up."""
+    entry = await init_integration(hass)
+
+    # User leaves the form empty to search; the answer claims the same serial.
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={CONF_SOURCE: config_entries.SOURCE_USER},
+        data={},
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_IP_ADDRESS] == "127.0.0.1"
+
+
+@pytest.mark.asyncio
+async def test_typed_address_moves_existing_printer(
+    enable_custom_integrations,
+    hass: HomeAssistant,
+    mock_printer_network: MagicMock,
+):
+    """Test an address the user types still updates the printer already set up."""
+    entry = await init_integration(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={CONF_SOURCE: config_entries.SOURCE_USER},
+        data={CONF_IP_ADDRESS: "127.0.0.2", CONF_PORT: 8899},
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_IP_ADDRESS] == "127.0.0.2"

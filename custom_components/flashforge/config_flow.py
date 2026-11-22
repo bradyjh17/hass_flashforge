@@ -71,8 +71,12 @@ class FlashForgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="no_devices_found")
 
         try:
+            # Whoever answered the search first could be any device on the
+            # network, so it may not move an existing printer to its address.
             await self._get_printer_info(
-                self.hass, {CONF_IP_ADDRESS: ip, CONF_PORT: port}
+                self.hass,
+                {CONF_IP_ADDRESS: ip, CONF_PORT: port},
+                update_existing=False,
             )
         except (TimeoutError, ConnectionError):
             return self.async_abort(reason="no_devices_found")
@@ -115,8 +119,14 @@ class FlashForgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors or {},
         )
 
-    async def _get_printer_info(self, hass: HomeAssistant, user_input: dict) -> None:  # noqa: ARG002
-        """Try to get info from given ip."""
+    async def _get_printer_info(
+        self,
+        hass: HomeAssistant,  # noqa: ARG002
+        user_input: dict,
+        *,
+        update_existing: bool = True,
+    ) -> None:
+        """Try to get info from given ip, abort if the printer is already set up."""
         self.ip_addr = user_input[CONF_IP_ADDRESS]
         self.port = user_input[CONF_PORT]
         self.printer = Printer(self.ip_addr, self.port)
@@ -126,9 +136,13 @@ class FlashForgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self.printer.serial is not None:
             await self.async_set_unique_id(self.printer.serial)
 
-        self._abort_if_unique_id_configured(
-            updates={CONF_IP_ADDRESS: self.ip_addr, CONF_PORT: self.port}
-        )
+        if update_existing:
+            # The user typed this address, move the existing printer to it.
+            self._abort_if_unique_id_configured(
+                updates={CONF_IP_ADDRESS: self.ip_addr, CONF_PORT: self.port}
+            )
+        else:
+            self._abort_if_unique_id_configured()
 
     @callback
     def _async_create_entry(self) -> ConfigFlowResult:
